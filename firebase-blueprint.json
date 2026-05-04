@@ -1,0 +1,167 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information and subscription status",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "avatar_url": { "type": "string", "format": "uri" },
+        "provider": { "type": "string" },
+        "phone": { "type": "string" },
+        "company": { "type": "string" },
+        "document": { "type": "string" },
+        "country": { "type": "string" },
+        "timezone": { "type": "string" },
+        "lastCactoSync": { "type": "string", "format": "date-time" },
+        "security_alerts_enabled": { "type": "boolean" },
+        "subscription_active": { "type": "boolean" },
+        "subscription_status": { "type": "string", "enum": ["active", "pending", "expired"] },
+        "subscription_expires_at": { "type": "string", "format": "date-time" },
+        "is_blocked": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "subscription_active"]
+    },
+    "Product": {
+      "title": "Winning Product",
+      "description": "A high-potential product identified by AI",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "image": { "type": "string", "format": "uri" },
+        "costPrice": { "type": "number" },
+        "suggestedPrice": { "type": "number" },
+        "margin": { "type": "number" },
+        "competition": { "type": "string", "enum": ["Baixa", "Média", "Alta"] },
+        "score": { "type": "number" },
+        "category": { "type": "string" },
+        "source": { "type": "string" },
+        "supplierUrl": { "type": "string", "format": "uri" },
+        "trendData": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": { "type": "string" },
+              "value": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["name", "costPrice", "suggestedPrice", "margin"]
+    },
+    "SavedProduct": {
+      "title": "Saved Product",
+      "description": "A product saved by a user to their favorites",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" },
+        "productName": { "type": "string" },
+        "productImage": { "type": "string" }
+      },
+      "required": ["productId"]
+    },
+    "Integration": {
+      "title": "Platform Integration",
+      "description": "Connected account for a marketplace platform",
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string", "enum": ["Mercado Livre", "Shopee", "Amazon", "AliExpress"] },
+        "clientId": { "type": "string" },
+        "clientSecret": { "type": "string" },
+        "apiKey": { "type": "string" },
+        "accessToken": { "type": "string" },
+        "connectedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["platform"]
+    },
+    "GeneratedListing": {
+      "title": "Generated Listing",
+      "description": "AI-generated product listing details",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "title", "description", "price"]
+    },
+    "PublishedListing": {
+      "title": "Published Listing",
+      "description": "Record of an ad published to a marketplace",
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string" },
+        "listingId": { "type": "string" },
+        "status": { "type": "string", "enum": ["success", "error"] },
+        "publishedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["platform", "listingId", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System or user notifications",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["product", "integration", "subscription", "system"] },
+        "is_read": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "type", "is_read", "created_at"]
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "description": "User activity history",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["auth", "product", "integration", "subscription", "supplier", "system"] },
+        "metadata": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "description", "type", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
+    "/users/{userId}/activity_logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "User activity history"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Public directory of winning products"
+    },
+    "/users/{userId}/saved_products/{saveId}": {
+      "schema": "SavedProduct",
+      "description": "User's collection of saved products"
+    },
+    "/users/{userId}/integrations/{integrationId}": {
+      "schema": "Integration",
+      "description": "User's connected marketplace accounts"
+    },
+    "/users/{userId}/generated_listings/{listingId}": {
+      "schema": "GeneratedListing",
+      "description": "User's AI generated listings"
+    },
+    "/users/{userId}/published_listings/{publishId}": {
+      "schema": "PublishedListing",
+      "description": "History of published ads"
+    }
+  }
+}

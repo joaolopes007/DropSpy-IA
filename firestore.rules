@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. User Profiles
+    function isValidUserProfile(data) {
+      return data.email is string && data.email.size() <= 256 &&
+             data.subscription_active is bool &&
+             data.keys().hasAll(['email', 'subscription_active']) &&
+             data.keys().size() >= 2;
+    }
+
+    function isSubscribed(userId) {
+      let profile = get(/databases/$(database)/documents/users/$(userId)).data;
+      return profile.subscription_active == true && 
+             (profile.subscription_expires_at == null || request.time <= timestamp(profile.subscription_expires_at));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidUserProfile(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['subscription_active', 'subscription_expires_at', 'email', 'name', 'avatar_url', 'provider', 'phone', 'company', 'document', 'country', 'timezone', 'security_alerts_enabled']);
+      
+      // User's saved products
+      match /saved_products/{saveId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isSubscribed(userId) && 
+                      incoming().productId is string && 
+                      incoming().productId.size() <= 128;
+        allow delete: if isOwner(userId);
+      }
+
+      // Marketplace Integrations
+      match /integrations/{integrationId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isSubscribed(userId) && 
+                      incoming().platform in ['Mercado Livre', 'Shopee', 'Amazon', 'AliExpress'];
+        allow delete: if isOwner(userId);
+      }
+
+      // AI Generated Listings
+      match /generated_listings/{listingId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isSubscribed(userId) && 
+                      incoming().productId is string &&
+                      incoming().title is string &&
+                      incoming().description is string &&
+                      incoming().price is number;
+        allow delete: if isOwner(userId);
+      }
+
+      // Published History
+      match /published_listings/{publishId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && isSubscribed(userId) && 
+                      incoming().platform is string &&
+                      incoming().listingId is string &&
+                      incoming().status in ['success', 'error'];
+      }
+
+      // Notifications
+      match /notifications/{notificationId} {
+        allow list, get: if isOwner(userId);
+        allow update: if isOwner(userId) && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['is_read']) &&
+                      incoming().is_read is bool;
+        allow delete: if isOwner(userId);
+        
+        // System creates notifications, but for the sake of this demo/app we allow user to create system notifications if they match the user
+        allow create: if isOwner(userId) && 
+                      incoming().title is string &&
+                      incoming().message is string &&
+                      incoming().type in ['product', 'integration', 'subscription', 'system'] &&
+                      incoming().is_read == false &&
+                      incoming().created_at == request.time;
+      }
+
+      // Activity Logs
+      match /activity_logs/{logId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) && 
+                      incoming().action is string &&
+                      incoming().description is string &&
+                      incoming().type in ['auth', 'product', 'integration', 'subscription', 'supplier', 'system'] &&
+                      incoming().created_at == request.time;
+        allow update, delete: if false;
+      }
+    }
+
+    // 2. Public Products (Read-only for users)
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() <= 256 &&
+             data.costPrice is number &&
+             data.suggestedPrice is number &&
+             data.margin is number &&
+             data.competition in ['Baixa', 'Média', 'Alta'] &&
+             data.score is number &&
+             data.category is string &&
+             data.source is string;
+    }
+
+    match /products/{productId} {
+      allow list, get: if isSignedIn() && isSubscribed(request.auth.uid);
+      // Only system/admin (implemented via separate mechanism or manual console for now) can write
+      allow write: if false; 
+    }
+  }
+}
